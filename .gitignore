@@ -1,0 +1,33 @@
+# folders  
+__pycache__  
+.git  
+.idea  
+.ipynb*  
+.venv  
+.vscode  
+data/  
+*env/  
+logs/  
+output/  
+uploads/
+  
+# files  
+*.code-workspace  
+*.csv  
+*.db  
+.DS_Store  
+.env  
+*.bmp
+*.ipynb
+*.jpeg
+*.jpg
+*.json  
+*.log  
+*.mkv  
+*.mp3  
+*.mp4 
+*.png
+*.tiff
+*.wav  
+*.webm  
+*.zip
