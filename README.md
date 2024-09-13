@@ -5,8 +5,6 @@
 
 This project utilizes [EasyOCR](https://github.com/JaidedAI/EasyOCR) to facilitate batch processing of image data.
 
-![Geordi](static/geordi.gif)
-
 ## Setup
 ```bash
 git clone https://github.com/nos-tromo/LaForge.git
