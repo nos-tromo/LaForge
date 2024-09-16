@@ -2,55 +2,35 @@ import logging
 import os
 from pathlib import Path
 
-import easyocr
+from PIL import Image
+from surya.ocr import run_ocr
+from surya.model.detection.model import load_model as load_det_model, load_processor as load_det_processor
+from surya.model.recognition.model import load_model as load_rec_model
+from surya.model.recognition.processor import load_processor as load_rec_processor
 
 
 class OCRVisor:
     """
-    A class to perform OCR detection on image files using EasyOCR.
+    A class to perform OCR on images and save the extracted text.
 
-    Attributes:
-    -----------
-    languages : list
-        A list of language codes for OCR detection.
-    input_dir : str
-        The path to the image file or directory to be processed.
-    output_dir : str
-        The directory where OCR results will be saved.
-
-    Methods:
-    --------
-    __init__(languages: list, input_dir: str, output_dir: str = 'output')
-        Initializes OCRDetection with languages, input file or directory, and output directory.
-
-    _load_reader(use_gpu: bool = True) -> None
-        Loads the EasyOCR Reader with specified languages. Attempts GPU usage, falls back to CPU on error.
-
-    _setup_directories(input_dir: str, output_dir: str) -> None
-        Sets up the input and output directories for OCR processing.
-
-    _convert_to_text(data: list) -> str
-        Converts the OCR result list into a single string of detected text.
-
-    _read_file(file_path: str) -> str
-        Reads and processes a single image file for OCR detection.
-
-    _save_output(data: str, output_filepath: Path) -> None
-        Saves OCR-detected text to a file in the output directory.
-
-    _process_single_file(file_path: str) -> None
-        Processes a single image file and saves the OCR result.
-
-    data_pipeline() -> None
-        Processes all image files in the input directory for OCR detection and saves the results.
+    :param languages: A list of language codes for OCR processing.
+    :type languages: list
+    :param input_dir: Path to the input directory or image file.
+    :type input_dir: str
+    :param output_dir: Path to the output directory where results will be saved.
+    :type output_dir: pathlib.Path, optional
     """
+
     def __init__(self, languages: list, input_dir: str, output_dir: Path = 'output'):
         """
-        Initializes OCRDetection with languages, input file or directory, and output directory.
+        Initialize the OCRVisor instance.
 
-        :param languages: A list of languages to be used by EasyOCR.
-        :param input_dir: Path to the image file or directory for OCR processing.
-        :param output_dir: Directory where the OCR results will be saved (default is 'output').
+        :param languages: A list of language codes for OCR processing.
+        :type languages: list
+        :param input_dir: Path to the input directory or image file.
+        :type input_dir: str
+        :param output_dir: Path to the output directory where results will be saved.
+        :type output_dir: pathlib.Path, optional
         :raises ValueError: If no languages are specified.
         """
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -60,61 +40,74 @@ class OCRVisor:
         self.languages = languages
         self.input_dir = input_dir
         self.output_dir = output_dir
-        self._load_reader()
+        self._load_model()
 
-    def _load_reader(self, use_gpu: bool = True) -> None:
+    def _load_model(self) -> None:
         """
-        Loads the EasyOCR Reader with specified languages. Attempts GPU usage, falls back to CPU on error.
+        Load the OCR detection and recognition models along with their processors.
 
-        :param use_gpu: If True, the reader will use GPU (default is True).
+        :raises Exception: If an error occurs while loading the models.
         """
         try:
-            self.reader = easyocr.Reader(self.languages, gpu=use_gpu)
+            self.det_processor, self.det_model = load_det_processor(), load_det_model()
+            self.rec_model, self.rec_processor = load_rec_model(), load_rec_processor()
         except Exception as e:
-            self.logger.error(f"Error loading EasyOCR Reader with GPU: {e}. Falling back to CPU.", exc_info=True)
-            self.reader = easyocr.Reader(self.languages, gpu=False)
+            self.logger.error(f"Error loading OCR model: {e}", exc_info=True)
 
     @staticmethod
     def _convert_to_text(data: list) -> str:
         """
-        Converts the OCR result list into a single string of detected text.
+        Convert a list of text lines into a single string.
 
-        :param data: A list of OCR-detected text data.
+        :param data: A list of extracted text lines.
         :type data: list
-        :return: The extracted text, or a message indicating no text was detected.
+        :return: Concatenated text from all lines or a message if no text is detected.
         :rtype: str
         """
         if not data:
             return "No text detected."
-        return '\n'.join([item[1] for item in data])
+        return '\n'.join([item for item in data])
 
-    def _read_file(self, file_path: str) -> str:
+    def _model_inference(self, file_path: str) -> str:
         """
-        Reads and processes a single image file for OCR detection.
+        Perform OCR on a single image file.
 
-        :param file_path: The path to the image file to be processed.
-        :return: The OCR-detected text from the image.
+        :param file_path: Path to the image file.
+        :type file_path: str
+        :return: Extracted text from the image.
         :rtype: str
-        :raises FileNotFoundError: If the file does not exist.
+        :raises FileNotFoundError: If the image file does not exist.
         """
         if not os.path.exists(file_path):
             self.logger.error(f"File not found: {file_path}")
             raise FileNotFoundError(f"The file {file_path} does not exist.")
         try:
-            result = self.reader.readtext(file_path)
-            return self._convert_to_text(result)
+            image = Image.open(file_path)
+            predictions = run_ocr(
+                [image],
+                [self.languages],
+                self.det_model,
+                self.det_processor,
+                self.rec_model,
+                self.rec_processor
+            )
+            ocr_result = predictions[0]
+            text_lines = ocr_result.text_lines
+            extracted_texts = [line.text for line in text_lines]
+            return self._convert_to_text(extracted_texts)
         except Exception as e:
             self.logger.error(f"Error reading file {file_path}: {e}", exc_info=True)
             return ''
 
     def _save_output(self, data: str, output_filepath: Path) -> None:
         """
-        Saves OCR-detected text to a file in the output directory.
+        Save the extracted text data to a file.
 
-        :param data: The text data to be saved.
-        :param output_filepath: The full file path where the output should be saved.
-        :type output_filepath: Path
-        :raises IOError: If there is an error writing to the file.
+        :param data: The text data to save.
+        :type data: str
+        :param output_filepath: The file path where the data will be saved.
+        :type output_filepath: pathlib.Path
+        :raises IOError: If an error occurs while writing to the file.
         """
         try:
             with open(output_filepath, 'w', encoding='utf-8') as f:
@@ -125,20 +118,24 @@ class OCRVisor:
 
     def _process_single_file(self, file_path: str) -> None:
         """
-        Processes a single image file and saves the OCR result.
+        Process a single image file for OCR and save the result.
 
-        :param file_path: The path to the image file to be processed.
+        :param file_path: Path to the image file.
+        :type file_path: str
         """
-        text = self._read_file(file_path)
+        text = self._model_inference(file_path)
         file_name = Path(file_path).stem
         output_filepath = self.output_dir / f'ocr_{file_name}.txt'
         self._save_output(text, output_filepath)
 
     def data_pipeline(self) -> None:
         """
-        Processes all image files in the input directory for OCR detection and saves the results.
+        Execute the data processing pipeline on the input directory or file.
 
-        :raises ValueError: If the input directory is neither a valid file nor a directory.
+        Processes all valid image files in the input directory or a single image file,
+        performing OCR and saving the results to the output directory.
+
+        :raises ValueError: If the input path is neither a valid file nor a directory.
         """
         path = Path(self.input_dir)
 
@@ -151,7 +148,7 @@ class OCRVisor:
 
             # Count the total number of valid files
             valid_files = [file for file in path.glob('*') if file.is_file() and
-                           file.suffix in ['.bmp', '.jpeg', '.jpg', '.png', '.tiff']]
+                           file.suffix.lower() in ['.bmp', '.jpeg', '.jpg', '.png', '.tiff']]
             total_files = len(valid_files)
 
             if total_files == 0:
