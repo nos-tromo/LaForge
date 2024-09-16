@@ -1,1 +1,10 @@
-easyocr
+langchain
+langchain-community
+llama-cpp-python
+pandas
+pillow
+pycountry
+sentencepiece
+surya-ocr
+torch
+transformers
