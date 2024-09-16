@@ -3,9 +3,7 @@
 > This is a personal project that is under heavy development. It could, and likely does, contain bugs, incomplete code,
 > or other unintended issues. As such, the software is provided as-is, without warranty of any kind.
 
-This project utilizes [EasyOCR](https://github.com/JaidedAI/EasyOCR) to facilitate batch processing of image data.
-
-![Geordi](static/geordi.gif)
+This project does OCR and machine translation to facilitate batch processing of image data.
 
 ## Setup
 ```bash
@@ -29,14 +27,32 @@ Batch processing:
 ```bash
 python laforge.py [lang] [directory]
 ```
+Add translation to OCR results:
+```bash
+python laforge.py [lang] [directory] [translation]
+```
 File output is stored under `output`.
 
+## Important note
+Multilingual detection is possible, but will likely result in significant accuracy loss. It is thus recommended to 
+split your data into batches of the same languages before processing it.
+
 ## Examples
+Single file processing:
 ```bash
-# single processing
 python laforge.py en data/image.png
+```
+```bash
 python laforge.py es,fr data/menu.jpg 
-# batch processing
+```
+Batch processing:
+```bash
 python laforge.py de fotos
-python laforge.py ch_sim docs 
+```
+```bash
+python laforge.py ch_sim docs
+```
+Translate results:
+```bash
+python laforge.py it data translate
 ```
