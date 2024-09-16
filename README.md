@@ -17,7 +17,7 @@ pip install -r requirements.txt
 ## Usage
 Basic usage:
 ```bash
-python laforge.py [lang] [path/to/file]
+python laforge.py [lang] [path/to/file] [translate]
 ```
 To detect multiple languages:
 ```bash
