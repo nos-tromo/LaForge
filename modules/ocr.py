@@ -44,7 +44,7 @@ class OCRVisor:
     data_pipeline() -> None
         Processes all image files in the input directory for OCR detection and saves the results.
     """
-    def __init__(self, languages: list, input_dir: str, output_dir: str = 'output'):
+    def __init__(self, languages: list, input_dir: str, output_dir: Path = 'output'):
         """
         Initializes OCRDetection with languages, input file or directory, and output directory.
 
@@ -58,8 +58,9 @@ class OCRVisor:
         if not languages:
             raise ValueError("At least one language must be specified.")
         self.languages = languages
+        self.input_dir = input_dir
+        self.output_dir = output_dir
         self._load_reader()
-        self._setup_directories(input_dir, output_dir)
 
     def _load_reader(self, use_gpu: bool = True) -> None:
         """
@@ -72,19 +73,6 @@ class OCRVisor:
         except Exception as e:
             self.logger.error(f"Error loading EasyOCR Reader with GPU: {e}. Falling back to CPU.", exc_info=True)
             self.reader = easyocr.Reader(self.languages, gpu=False)
-
-    def _setup_directories(self, input_dir: str, output_dir: str) -> None:
-        """
-        Sets up the input and output directories for OCR processing.
-
-        :param input_dir: The path to the input image file or directory.
-        :param output_dir: The path to the output directory for saving OCR results.
-        """
-        self.input_dir = input_dir
-        self.output_dir = Path(output_dir)
-        if not self.output_dir.exists():
-            self.output_dir.mkdir(parents=True, exist_ok=True)
-            self.logger.info(f"Created output directory: {self.output_dir}")
 
     @staticmethod
     def _convert_to_text(data: list) -> str:
