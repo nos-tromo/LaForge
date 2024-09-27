@@ -14,6 +14,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Running LaForge for the first time will download the required models to `~/.cache/huggingface/hub`. After that, you can 
+switch to offline mode:
+
+```bash
+echo 'export HF_HUB_OFFLINE=1' >> .venv/bin/activate
+```
+
 ## Usage
 Basic usage:
 ```bash
@@ -29,12 +36,12 @@ python laforge.py [lang] [directory]
 ```
 Add translation to OCR results:
 ```bash
-python laforge.py [lang] [directory] [translation]
+python laforge.py [lang] [directory] [translate]
 ```
 File output is stored under `output`.
 
 ## Important note
-Multilingual detection is possible, but will likely result in significant accuracy loss. It is thus recommended to 
+Multilingual detection is possible, but will likely result in significant accuracy loss. It is recommended to 
 split your data into batches of the same languages before processing it.
 
 ## Examples
