@@ -1,17 +1,16 @@
-# configure root logger
 import logging
 from datetime import datetime
 from pathlib import Path
 logfile_name = f'laforge_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
-logs_dir = Path('logs')
+logs_dir = Path('.logs')
 logs_dir.mkdir(parents=True, exist_ok=True)
 logfile_path = logs_dir / logfile_name
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(logfile_path),  # logging to a file
-        logging.StreamHandler()  # logging to the console (stdout)
+        logging.FileHandler(logfile_path),
+        logging.StreamHandler()
     ]
 )
 
@@ -38,7 +37,7 @@ def ocr_pipeline(
         languages: list,
         data: str,
         output_dir: Path
-):
+) -> None:
     ocr = OCRVisor(
         languages,
         data,
@@ -67,8 +66,8 @@ def translation_pipeline(
 
 def main() -> None:
     try:
-        languages = sys.argv[1].split(",") if len(sys.argv) > 1 else ["en"]  # set default language to english
-        data = sys.argv[2] if len(sys.argv) > 2 else input("Enter the file path: ")
+        data = sys.argv[1] if len(sys.argv) > 2 else input("Enter the file path: ")
+        languages = sys.argv[2].split(",") if len(sys.argv) > 1 else ["en"]  # set default language to english
         translate = sys.argv[3].lower() == 'translate' if len(sys.argv) > 3 else False
 
         output_dir = setup_directories()
