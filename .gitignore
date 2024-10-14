@@ -1,33 +1,30 @@
-# folders  
-__pycache__  
-.git  
-.idea  
-.ipynb*  
-.venv  
-.vscode  
-data/  
-*env/  
-logs/  
-output/  
+# all hidden files and directories
+.*
+!.gitignore
+
+# directories
+__pycache__
+data/
+env/
+gguf/
+output/
 uploads/
-  
-# files  
-*.code-workspace  
-*.csv  
-*.db  
-.DS_Store  
-.env  
+
+# files
 *.bmp
+*.code-workspace
+*.db
+*.gguf
 *.ipynb
 *.jpeg
 *.jpg
-*.json  
-*.log  
-*.mkv  
-*.mp3  
-*.mp4 
+*.json
+*.log
+*.mkv
+*.mp3
+*.mp4
 *.png
 *.tiff
-*.wav  
-*.webm  
+*.wav
+*.webm
 *.zip
