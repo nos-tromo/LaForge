@@ -1,15 +1,31 @@
 # LaForge
 
-> This is a personal project that is under heavy development. It could, and likely does, contain bugs, incomplete code,
-> or other unintended issues. As such, the software is provided as-is, without warranty of any kind.
+![LaForge-Logo](static/img/laforge_logo.png)
 
 This project does OCR and machine translation to facilitate batch processing of image data.
 
+> This is a personal project that is under heavy development. It could, and likely does, contain bugs, incomplete code,
+> or other unintended issues. As such, the software is provided as-is, without warranty of any kind.
+
+
 ## Setup
+Clone the repository and create a virtual environment:
 ```bash
 git clone https://github.com/nos-tromo/LaForge.git
 cd LaForge
+pyenv install 3.11.6
+pyenv local 3.11.6
 python -m venv .venv
+```
+Set GPU-related environment variables before installing Python dependencies (see [pytorch.org](https://pytorch.org/) for troubleshooting):
+```bash
+# Cuda
+echo 'export CMAKE_ARGS="-DGGML_CUDA=on" FORCE_CMAKE=1' >> .venv/bin/activate
+# Metal (Apple Silicon)
+echo 'export CMAKE_ARGS="-DGGML_METAL=on" FORCE_CMAKE=1' >> .venv/bin/activate
+echo 'export PYTORCH_ENABLE_MPS_FALLBACK=1' >> .venv/bin/activate
+```
+```bash
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -24,19 +40,19 @@ echo 'export HF_HUB_OFFLINE=1' >> .venv/bin/activate
 ## Usage
 Basic usage:
 ```bash
-python laforge.py [lang] [path/to/file] [translate]
+python laforge.py [path/to/file] [lang] [translate]
 ```
 To detect multiple languages:
 ```bash
-python laforge.py [lang_1,lang_2...lang_n] [path/to/data]
+python laforge.py [path/to/data] [lang_1,lang_2...lang_n]
 ```
 Batch processing:
 ```bash
-python laforge.py [lang] [directory]
+python laforge.py [directory] [lang]
 ```
 Add translation to OCR results:
 ```bash
-python laforge.py [lang] [directory] [translate]
+python laforge.py [directory] [lang] [translate]
 ```
 File output is stored under `output`.
 
@@ -47,19 +63,19 @@ split your data into batches of the same languages before processing it.
 ## Examples
 Single file processing:
 ```bash
-python laforge.py en data/image.png
+python laforge.py data/image.png en
 ```
 ```bash
-python laforge.py es,fr data/menu.jpg 
+python laforge.py data/menu.jpg es,fr 
 ```
 Batch processing:
 ```bash
-python laforge.py de fotos
+python laforge.py fotos de
 ```
 ```bash
-python laforge.py ch_sim docs
+python laforge.py docs ch_sim
 ```
 Translate results:
 ```bash
-python laforge.py it data translate
+python laforge.py data it translate
 ```
