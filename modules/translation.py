@@ -10,7 +10,7 @@ import pandas as pd
 import pycountry
 import torch
 
-from modules.config import (
+from config.llamacpp_cfg import (
     model_by_device, system_prompt, entities_prompt, summarization_prompt, topic_label_sum_prompt, topic_docs_sum_prompt,
     toxicity_prompt, translation_prompt
 )
