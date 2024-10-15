@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 
+from pdf2image import convert_from_path
 from PIL import Image
 from surya.ocr import run_ocr
 from surya.model.detection.model import load_model as load_det_model, load_processor as load_det_processor
@@ -70,34 +71,68 @@ class OCRVisor:
 
     def _model_inference(self, file_path: str) -> str:
         """
-        Perform OCR on a single image file.
+        Perform OCR on a single image or PDF file.
 
-        :param file_path: Path to the image file.
+        :param file_path: Path to the image or PDF file.
         :type file_path: str
-        :return: Extracted text from the image.
+        :return: Extracted text from the image or PDF.
         :rtype: str
-        :raises FileNotFoundError: If the image file does not exist.
+        :raises FileNotFoundError: If the file does not exist.
+        :raises ValueError: If the file format is not supported.
         """
         if not os.path.exists(file_path):
             self.logger.error(f"File not found: {file_path}")
             raise FileNotFoundError(f"The file {file_path} does not exist.")
-        try:
-            image = Image.open(file_path)
-            predictions = run_ocr(
-                [image],
-                [self.languages],
-                self.det_model,
-                self.det_processor,
-                self.rec_model,
-                self.rec_processor
-            )
-            ocr_result = predictions[0]
-            text_lines = ocr_result.text_lines
-            extracted_texts = [line.text for line in text_lines]
-            return self._convert_to_text(extracted_texts)
-        except Exception as e:
-            self.logger.error(f"Error reading file {file_path}: {e}", exc_info=True)
-            return ''
+
+        extracted_texts = []
+
+        # Check if the file is an image or a PDF
+        if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff')):
+            # Process as an image
+            try:
+                image = Image.open(file_path)
+                predictions = run_ocr(
+                    [image],
+                    [self.languages],
+                    self.det_model,
+                    self.det_processor,
+                    self.rec_model,
+                    self.rec_processor
+                )
+                ocr_result = predictions[0]
+                text_lines = ocr_result.text_lines
+                extracted_texts = [line.text for line in text_lines]
+            except Exception as e:
+                self.logger.error(f"Error reading image file {file_path}: {e}", exc_info=True)
+                return ''
+
+        elif file_path.lower().endswith('.pdf'):
+            # Process as a PDF
+            try:
+                # Convert PDF pages to images
+                pdf_images = convert_from_path(file_path)
+                for page_num, image in enumerate(pdf_images):
+                    # Run OCR on each page image
+                    predictions = run_ocr(
+                        [image],
+                        [self.languages],
+                        self.det_model,
+                        self.det_processor,
+                        self.rec_model,
+                        self.rec_processor
+                    )
+                    ocr_result = predictions[0]
+                    text_lines = ocr_result.text_lines
+                    extracted_texts.extend([line.text for line in text_lines])
+            except Exception as e:
+                self.logger.error(f"Error processing PDF file {file_path}: {e}", exc_info=True)
+                return ''
+
+        else:
+            self.logger.error(f"Unsupported file format: {file_path}")
+            raise ValueError(f"Unsupported file format: {file_path}")
+
+        return self._convert_to_text(extracted_texts)
 
     def _save_output(self, data: str, output_filepath: Path) -> None:
         """
