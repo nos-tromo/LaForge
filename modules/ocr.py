@@ -1,7 +1,6 @@
 import logging
 import os
 from pathlib import Path
-
 from pdf2image import convert_from_path
 from PIL import Image
 from surya.ocr import run_ocr
@@ -12,27 +11,33 @@ from surya.model.recognition.processor import load_processor as load_rec_process
 
 class OCRVisor:
     """
-    A class to perform OCR on images and save the extracted text.
+    A class to perform OCR on images and PDF files, and save the extracted text to a specified output directory.
 
-    :param languages: A list of language codes for OCR processing.
-    :type languages: list
-    :param input_dir: Path to the input directory or image file.
-    :type input_dir: str
-    :param output_dir: Path to the output directory where results will be saved.
-    :type output_dir: pathlib.Path, optional
+    Attributes:
+        languages (list): A list of language codes for OCR processing.
+        input_dir (str): Path to the input directory or image/PDF file.
+        output_dir (Path): Path to the output directory where results will be saved.
+        file_name (str): Name of the input file or directory.
+        file_extensions (tuple): A tuple of valid image file extensions.
+
+    Methods:
+        __init__(languages, input_dir, output_dir): Initializes the OCRVisor object.
+        _load_model(): Loads the OCR detection and recognition models.
+        _convert_to_text(data): Converts a list of extracted text lines to a string.
+        _model_inference(image): Runs OCR on a given image and returns text lines.
+        _process_file(file_path): Processes a single image or PDF file and returns the extracted text.
+        _save_output(output_filepath, data): Saves the extracted text to a specified file.
+        data_pipeline(): Processes all valid files (images or PDFs) in the input directory or a single file.
     """
 
-    def __init__(self, languages: list, input_dir: str, output_dir: Path = 'output'):
+    def __init__(self, languages: list, input_dir: str, output_dir: Path = "output"):
         """
-        Initialize the OCRVisor instance.
+        Initializes the OCRVisor instance.
 
         :param languages: A list of language codes for OCR processing.
-        :type languages: list
-        :param input_dir: Path to the input directory or image file.
-        :type input_dir: str
+        :param input_dir: Path to the input directory or image/PDF file.
         :param output_dir: Path to the output directory where results will be saved.
-        :type output_dir: pathlib.Path, optional
-        :raises ValueError: If no languages are specified.
+        :raises ValueError: If no languages are provided.
         """
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -41,13 +46,29 @@ class OCRVisor:
         self.languages = languages
         self.input_dir = input_dir
         self.output_dir = output_dir
+        self.file_name = Path(self.input_dir).stem
         self._load_model()
+
+        # Load valid image extensions from a file
+        img_extensions_path = "config/img_extensions.txt"
+        try:
+            self.file_extensions = tuple(
+                map(
+                    lambda ext: f".{ext.strip()}",
+                    open(
+                        img_extensions_path,
+                        encoding="utf-8"
+                    ).readlines()
+                )
+            )
+            self.logger.info("Image extensions loaded.")
+        except FileNotFoundError as e:
+            self.logger.error(f"No image extensions file found: {e}", exc_info=True)
 
     def _load_model(self) -> None:
         """
-        Load the OCR detection and recognition models along with their processors.
-
-        :raises Exception: If an error occurs while loading the models.
+        Loads the OCR detection and recognition models along with their processors.
+        This method must be called during initialization to load the required models.
         """
         try:
             self.det_processor, self.det_model = load_det_processor(), load_det_model()
@@ -58,25 +79,39 @@ class OCRVisor:
     @staticmethod
     def _convert_to_text(data: list) -> str:
         """
-        Convert a list of text lines into a single string.
+        Converts a list of text lines into a single string.
 
         :param data: A list of extracted text lines.
-        :type data: list
-        :return: Concatenated text from all lines or a message if no text is detected.
-        :rtype: str
+        :return: Concatenated text from all lines, or a message if no text is detected.
         """
         if not data:
             return "No text detected."
-        return '\n'.join([item for item in data])
+        return "\n".join([item for item in data])
 
-    def _model_inference(self, file_path: str) -> str:
+    def _model_inference(self, image: Image) -> list:
         """
-        Perform OCR on a single image or PDF file.
+        Runs OCR on a given image and returns a list of extracted text lines.
+
+        :param image: An image object to process.
+        :return: A list of text lines extracted from the image.
+        """
+        predictions = run_ocr(
+            [image],
+            [self.languages],
+            self.det_model,
+            self.det_processor,
+            self.rec_model,
+            self.rec_processor
+        )
+        ocr_result = predictions[0]
+        return ocr_result.text_lines
+
+    def _process_file(self, file_path: str) -> str:
+        """
+        Processes a single image or PDF file and returns the extracted text.
 
         :param file_path: Path to the image or PDF file.
-        :type file_path: str
         :return: Extracted text from the image or PDF.
-        :rtype: str
         :raises FileNotFoundError: If the file does not exist.
         :raises ValueError: If the file format is not supported.
         """
@@ -86,43 +121,22 @@ class OCRVisor:
 
         extracted_texts = []
 
-        # Check if the file is an image or a PDF
-        if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff')):
-            # Process as an image
+        # Process image file types
+        if file_path.lower().endswith(self.file_extensions):
             try:
                 image = Image.open(file_path)
-                predictions = run_ocr(
-                    [image],
-                    [self.languages],
-                    self.det_model,
-                    self.det_processor,
-                    self.rec_model,
-                    self.rec_processor
-                )
-                ocr_result = predictions[0]
-                text_lines = ocr_result.text_lines
+                text_lines = self._model_inference(image)
                 extracted_texts = [line.text for line in text_lines]
             except Exception as e:
-                self.logger.error(f"Error reading image file {file_path}: {e}", exc_info=True)
+                self.logger.error(f"Error processing image file {file_path}: {e}", exc_info=True)
                 return ''
 
-        elif file_path.lower().endswith('.pdf'):
-            # Process as a PDF
+        # Process PDF files
+        elif file_path.lower().endswith(".pdf"):
             try:
-                # Convert PDF pages to images
                 pdf_images = convert_from_path(file_path)
                 for page_num, image in enumerate(pdf_images):
-                    # Run OCR on each page image
-                    predictions = run_ocr(
-                        [image],
-                        [self.languages],
-                        self.det_model,
-                        self.det_processor,
-                        self.rec_model,
-                        self.rec_processor
-                    )
-                    ocr_result = predictions[0]
-                    text_lines = ocr_result.text_lines
+                    text_lines = self._model_inference(image)
                     extracted_texts.extend([line.text for line in text_lines])
             except Exception as e:
                 self.logger.error(f"Error processing PDF file {file_path}: {e}", exc_info=True)
@@ -134,56 +148,44 @@ class OCRVisor:
 
         return self._convert_to_text(extracted_texts)
 
-    def _save_output(self, data: str, output_filepath: Path) -> None:
+    def _save_output(self, output_filepath: Path, data: str) -> None:
         """
-        Save the extracted text data to a file.
+        Saves the extracted text data to a file.
 
-        :param data: The text data to save.
-        :type data: str
         :param output_filepath: The file path where the data will be saved.
-        :type output_filepath: pathlib.Path
+        :param data: The text data to save.
         :raises IOError: If an error occurs while writing to the file.
         """
         try:
-            with open(output_filepath, 'w', encoding='utf-8') as f:
+            with open(output_filepath, "w", encoding="utf-8") as f:
                 f.write(data)
             self.logger.info(f"Saved output to: {output_filepath}")
         except IOError as e:
             self.logger.error(f"Error writing to file {output_filepath}: {e}", exc_info=True)
 
-    def _process_single_file(self, file_path: str) -> None:
-        """
-        Process a single image file for OCR and save the result.
-
-        :param file_path: Path to the image file.
-        :type file_path: str
-        """
-        text = self._model_inference(file_path)
-        file_name = Path(file_path).stem
-        output_filepath = self.output_dir / f'ocr_{file_name}.txt'
-        self._save_output(text, output_filepath)
-
     def data_pipeline(self) -> None:
         """
-        Execute the data processing pipeline on the input directory or file.
+        Executes the data processing pipeline on the input directory or file.
 
-        Processes all valid image files in the input directory or a single image file,
+        Processes all valid image files in the input directory or a single image/PDF file,
         performing OCR and saving the results to the output directory.
 
         :raises ValueError: If the input path is neither a valid file nor a directory.
         """
         path = Path(self.input_dir)
 
-        if path.is_file():  # If it's a single file, process it
+        # Process a single file
+        if path.is_file():
             self.logger.info(f"Processing file: {self.input_dir}")
-            self._process_single_file(self.input_dir)
-            self.logger.info("Finished processing 1 file.")
-        elif path.is_dir():  # If it's a directory, process all files in the directory
-            self.logger.info(f"Processing files in directory: {self.input_dir}")
+            text = self._process_file(self.input_dir)
+            output_filepath = self.output_dir / f"ocr_{self.file_name}.txt"
+            self._save_output(output_filepath, text)
+            self.logger.info(f"Finished processing file '{self.file_name}'.")
 
-            # Count the total number of valid files
-            valid_files = [file for file in path.glob('*') if file.is_file() and
-                           file.suffix.lower() in ['.bmp', '.jpeg', '.jpg', '.png', '.tiff']]
+        # Process all files in a directory
+        elif path.is_dir():
+            self.logger.info(f"Processing files in directory: {self.input_dir}")
+            valid_files = [file for file in path.glob("*") if file.is_file() and file.suffix.lower() in self.file_extensions]
             total_files = len(valid_files)
 
             if total_files == 0:
@@ -194,9 +196,12 @@ class OCRVisor:
             for file in valid_files:
                 counter += 1
                 self.logger.info(f"Processing file #{counter}: {file}")
-                self._process_single_file(str(file))
-                self.logger.info(f"Completed processing file #{counter}: {file}")
+                text = self._process_file(file)
+                output_filepath = self.output_dir / f"ocr_{file.stem}.txt"
+                self._save_output(output_filepath, text)
+                self.logger.info(f"Finished processing file #{counter}: {file}")
 
             self.logger.info(f"Finished processing {counter} of {total_files} files in directory.")
+
         else:
             raise ValueError(f"{self.input_dir} is neither a valid file nor a directory.")
