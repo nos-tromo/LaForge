@@ -2,6 +2,7 @@ langchain
 langchain-community
 llama-cpp-python
 pandas
+pdf2image
 pillow
 pycountry
 sentencepiece
