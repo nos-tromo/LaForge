@@ -30,7 +30,20 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Running LaForge for the first time will download the required models to `~/.cache/huggingface/hub`. After that, you can 
+Download one of the [Gemma 2](https://blog.google/technology/developers/google-gemma-2/) models. The following quant 
+sizes are suggestions depending on your machine's hardware. Comment out the model files that are not required:
+```bash
+directory=gguf
+mkdir -p $directory/ && 
+curl -L -o $directory/gemma-2-9b-it-Q8_0.gguf \
+https://huggingface.co/bartowski/gemma-2-9b-it-GGUF/resolve/main/gemma-2-9b-it-Q8_0.gguf && \
+curl -L -o $directory/gemma-2-9b-it-Q4_K_M.gguf \
+https://huggingface.co/bartowski/gemma-2-9b-it-GGUF/resolve/main/gemma-2-9b-it-Q4_K_M.gguf && \
+curl -L -o $directory/gemma-2-2b-it-Q8_0.gguf \
+https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q8_0.gguf
+```
+
+Running `LaForge` for the first time will download the `surya` models to `~/.cache/huggingface/hub`. After that, you can 
 switch to offline mode:
 
 ```bash
