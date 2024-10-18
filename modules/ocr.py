@@ -1,12 +1,14 @@
 import logging
 import os
 from pathlib import Path
+
 from pdf2image import convert_from_path
 from PIL import Image
 from surya.ocr import run_ocr
 from surya.model.detection.model import load_model as load_det_model, load_processor as load_det_processor
 from surya.model.recognition.model import load_model as load_rec_model
 from surya.model.recognition.processor import load_processor as load_rec_processor
+import torch
 
 
 class OCRVisor:
@@ -76,6 +78,27 @@ class OCRVisor:
         except Exception as e:
             self.logger.error(f"Error loading OCR model: {e}", exc_info=True)
 
+    def _model_inference(self, image: Image) -> list:
+        """
+        Runs OCR on a given image and returns a list of extracted text lines.
+
+        :param image: An image object to process.
+        :return: A list of text lines extracted from the image.
+        """
+        batch_size = 10 if torch.cuda.is_available() else 5 if torch.backends.mps.is_available() else 1
+
+        predictions = run_ocr(
+            [image],
+            [self.languages],
+            self.det_model,
+            self.det_processor,
+            self.rec_model,
+            self.rec_processor,
+            batch_size=batch_size
+        )
+        ocr_result = predictions[0]
+        return ocr_result.text_lines
+
     @staticmethod
     def _convert_to_text(data: list) -> str:
         """
@@ -87,24 +110,6 @@ class OCRVisor:
         if not data:
             return "No text detected."
         return "\n".join([item for item in data])
-
-    def _model_inference(self, image: Image) -> list:
-        """
-        Runs OCR on a given image and returns a list of extracted text lines.
-
-        :param image: An image object to process.
-        :return: A list of text lines extracted from the image.
-        """
-        predictions = run_ocr(
-            [image],
-            [self.languages],
-            self.det_model,
-            self.det_processor,
-            self.rec_model,
-            self.rec_processor
-        )
-        ocr_result = predictions[0]
-        return ocr_result.text_lines
 
     def _process_file(self, file_path: str) -> str:
         """
