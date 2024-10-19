@@ -78,6 +78,20 @@ class OCRVisor:
         except Exception as e:
             self.logger.error(f"Error loading OCR model: {e}", exc_info=True)
 
+    def resize_image(self, image: Image, max_size: tuple[int, int] = (2000, 2000)) -> Image:
+        """
+        Resizes the image to the specified max dimensions while maintaining aspect ratio.
+
+        :param image: The PIL Image object to resize.
+        :param max_size: Tuple (width, height) representing the maximum dimensions.
+        :return: The resized PIL Image object.
+        """
+        original_size = image.size
+        image.thumbnail(max_size, Image.Resampling.LANCZOS)
+        new_size = image.size
+        self.logger.info(f"Resized image from {original_size} to {new_size}.")
+        return image
+
     def _model_inference(self, image: Image) -> list:
         """
         Runs OCR on a given image and returns a list of extracted text lines.
@@ -85,7 +99,7 @@ class OCRVisor:
         :param image: An image object to process.
         :return: A list of text lines extracted from the image.
         """
-        batch_size = 512 if torch.cuda.is_available() else 64 if torch.backends.mps.is_available() else 32
+        batch_size = 512 if torch.cuda.is_available() else 32 if torch.backends.mps.is_available() else 32
 
         predictions = run_ocr(
             [image],
@@ -130,7 +144,8 @@ class OCRVisor:
         if file_path.lower().endswith(self.file_extensions):
             try:
                 image = Image.open(file_path)
-                text_lines = self._model_inference(image)
+                resized_image = self.resize_image(image, max_size=(3000, 3000))
+                text_lines = self._model_inference(resized_image)
                 extracted_texts = [line.text for line in text_lines]
             except Exception as e:
                 self.logger.error(f"Error processing image file {file_path}: {e}", exc_info=True)
@@ -141,8 +156,10 @@ class OCRVisor:
             try:
                 pdf_images = convert_from_path(file_path)
                 for page_num, image in enumerate(pdf_images):
-                    text_lines = self._model_inference(image)
+                    resized_image = self.resize_image(image, max_size=(3000, 3000))
+                    text_lines = self._model_inference(resized_image)
                     extracted_texts.extend([line.text for line in text_lines])
+                    self.logger.info(f"Processed page {page_num + 1} of {len(pdf_images)}.")
             except Exception as e:
                 self.logger.error(f"Error processing PDF file {file_path}: {e}", exc_info=True)
                 return ''
