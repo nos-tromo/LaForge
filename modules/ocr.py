@@ -85,7 +85,7 @@ class OCRVisor:
         :param image: An image object to process.
         :return: A list of text lines extracted from the image.
         """
-        batch_size = 10 if torch.cuda.is_available() else 5 if torch.backends.mps.is_available() else 1
+        batch_size = 512 if torch.cuda.is_available() else 64 if torch.backends.mps.is_available() else 32
 
         predictions = run_ocr(
             [image],
