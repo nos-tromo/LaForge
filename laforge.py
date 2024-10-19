@@ -72,8 +72,8 @@ def translation_pipeline(
 
 def main() -> None:
     try:
-        data = sys.argv[1] if len(sys.argv) > 2 else input("Enter the file path: ")
-        languages = sys.argv[2].split(",") if len(sys.argv) > 1 else ["en"]  # set default language to english
+        data = sys.argv[1] if len(sys.argv) > 1 else input("Enter the file path: ")
+        languages = sys.argv[2].split(",") if len(sys.argv) > 2 else ["en"]
         translate = sys.argv[3].lower() == "translate" if len(sys.argv) > 3 else False
 
         output_dir = setup_directories()
